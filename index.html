@@ -553,12 +553,22 @@ select.inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
   <div class="modal big">
     <div class="modal-title"><span id="item-modal-title">Nuevo <em>ítem</em></span><button class="modal-close" onclick="closeItemModal()">✕</button></div>
     <form class="modal-form" onsubmit="event.preventDefault();saveItem()">
-      <div>
-        <label style="font-size:.62rem;text-transform:uppercase;letter-spacing:.18em;color:var(--text-soft);font-weight:600;display:block;margin-bottom:6px">Foto</label>
+      
+            <div>
+        <label style="font-size:.62rem;text-transform:uppercase;letter-spacing:.18em;color:var(--text-soft);font-weight:600;display:block;margin-bottom:6px">Foto principal (miniatura)</label>
         <div class="photo-drop" id="photo-drop" onclick="document.getElementById('photo-input').click()">📷 Toca para agregar foto</div>
         <input type="file" id="photo-input" accept="image/*" class="hidden-input" onchange="handlePhoto(event)">
         <button type="button" class="btn btn-ghost" id="rm-photo" onclick="removePhoto()" style="margin-top:8px;display:none">Quitar foto</button>
       </div>
+      <div class="sub-box">
+        <div class="sub-title">📸 Más fotos (modelos luciendo la prenda)</div>
+        <p class="help-text" style="margin:0 0 4px">La primera es la miniatura de arriba. Estas se muestran en la galería del producto y al pasar el mouse.</p>
+        <div id="gallery-prev" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"></div>
+        <div class="photo-drop" id="gallery-drop" style="aspect-ratio:auto;min-height:70px" onclick="document.getElementById('gallery-input').click()">➕ Agregar fotos de modelos (puedes elegir varias)</div>
+        <input type="file" id="gallery-input" accept="image/*" multiple class="hidden-input" onchange="handleGalleryPhotos(event)">
+      </div>
+
+      
       <div class="form-group"><label>Nombre *</label><input class="inp" id="it-name" placeholder="Playera Oversize · Ángel" required></div>
       <div class="modal-form-row">
         <div class="form-group"><label>Categoría</label>
@@ -786,19 +796,41 @@ function clock(){const n=new Date();document.getElementById('clock').textContent
 function compress(file,max=720,q=.72){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;r.onload=e=>{const img=new Image();img.onerror=rej;img.onload=()=>{let{width:w,height:h}=img;if(w>h&&w>max){h=Math.round(h*max/w);w=max;}else if(h>max){w=Math.round(w*max/h);h=max;}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);res(c.toDataURL('image/jpeg',q));};img.src=e.target.result;};r.readAsDataURL(file);});}
 async function handlePhoto(e){const f=e.target.files[0];if(!f)return;toast('hourglass_empty','Comprimiendo...');try{pendingPhoto=await compress(f);renderPhotoPrev();}catch{toast('error','Error con la imagen');}}
 function renderPhotoPrev(){const d=document.getElementById('photo-drop'),b=document.getElementById('rm-photo');if(pendingPhoto){d.innerHTML=`<img src="${pendingPhoto}">`;b.style.display='inline-flex';}else{d.innerHTML='📷 Toca para agregar foto';b.style.display='none';}}
+  
 function removePhoto(){pendingPhoto=null;document.getElementById('photo-input').value='';renderPhotoPrev();}
+
+
+let pendingGallery=[];
+async function handleGalleryPhotos(e){
+  const files=[...e.target.files];if(!files.length)return;
+  toast('hourglass_empty','Comprimiendo fotos...');
+  for(const f of files){try{const c=await compress(f);pendingGallery.push(c);}catch{}}
+  e.target.value='';renderGalleryPrev();
+}
+function renderGalleryPrev(){
+  const el=document.getElementById('gallery-prev');if(!el)return;
+  el.innerHTML=pendingGallery.map((src,i)=>`<div style="position:relative;aspect-ratio:3/4;border-radius:6px;overflow:hidden"><img src="${src}" style="width:100%;height:100%;object-fit:cover"><button type="button" onclick="removeGalleryPhoto(${i})" style="position:absolute;top:3px;right:3px;background:rgba(224,35,21,.9);color:#fff;width:20px;height:20px;border-radius:50%;font-size:12px;line-height:1">✕</button></div>`).join('');
+}
+function removeGalleryPhoto(i){pendingGallery.splice(i,1);renderGalleryPrev();}
+
+  
 async function handleGoalPhoto(e){const f=e.target.files[0];if(!f)return;try{pendingGoalPhoto=await compress(f,500,.7);document.getElementById('goal-photo-drop').innerHTML=`<img src="${pendingGoalPhoto}">`;}catch{}}
 
 /* ITEM CRUD */
 function openItemModal(id=null){editItemId=id;pendingPhoto=null;const t=document.getElementById('item-modal-title');document.querySelector('#item-modal form').reset();SIZES.forEach(s=>document.getElementById('st-'+s).value=0);
-  if(id){const it=data.inventory.find(i=>i.id===id);if(!it)return;t.innerHTML='Editar <em>ítem</em>';document.getElementById('it-name').value=it.name||'';document.getElementById('it-cat').value=it.cat||'playeras';document.getElementById('it-status').value=it.status||'available';document.getElementById('it-cost').value=it.cost||'';document.getElementById('it-price').value=it.price||'';document.getElementById('it-old').value=it.old||'';document.getElementById('it-hot').checked=!!it.hot;document.getElementById('it-copy').value=it.copy||'';SIZES.forEach(s=>document.getElementById('st-'+s).value=it.stock?.[s]||0);pendingPhoto=it.photo||null;}
+  if(id){const it=data.inventory.find(i=>i.id===id);if(!it)return;t.innerHTML='Editar <em>ítem</em>';document.getElementById('it-name').value=it.name||'';document.getElementById('it-cat').value=it.cat||'playeras';document.getElementById('it-status').value=it.status||'available';document.getElementById('it-cost').value=it.cost||'';document.getElementById('it-price').value=it.price||'';document.getElementById('it-old').value=it.old||'';document.getElementById('it-hot').checked=!!it.hot;document.getElementById('it-copy').value=it.copy||'';SIZES.forEach(s=>document.getElementById('st-'+s).value=it.stock?.[s]||0);pendingPhoto=it.photo||null;pendingGallery=Array.isArray(it.gallery)?[...it.gallery]:[];}
+
   else{t.innerHTML='Nuevo <em>ítem</em>';}
-  renderPhotoPrev();updateMargin();document.getElementById('item-modal').classList.add('open');}
+
+  if(!id)pendingGallery=[];renderPhotoPrev();renderGalleryPrev();updateMargin();document.getElementById('item-modal').classList.add('open');}
+
+                                
 function closeItemModal(){document.getElementById('item-modal').classList.remove('open');editItemId=null;pendingPhoto=null;}
 function updateMargin(){const c=+document.getElementById('it-cost').value||0,p=+document.getElementById('it-price').value||0;const el=document.getElementById('it-margin');if(c>0&&p>0){const prof=p-c,roi=((prof/c)*100).toFixed(0);el.innerHTML=`Ganancia x pieza: <strong style="color:${prof>=0?'var(--green)':'var(--red)'}">${money(prof)}</strong> (${roi}% ROI)`;}else el.innerHTML='';}
   
 function saveItem(){const name=document.getElementById('it-name').value.trim();if(!name){toast('error','Falta el nombre');return;}const stock={};SIZES.forEach(s=>stock[s]=+document.getElementById('st-'+s).value||0);
-  const obj={name,cat:document.getElementById('it-cat').value,status:document.getElementById('it-status').value,cost:+document.getElementById('it-cost').value||0,price:+document.getElementById('it-price').value||0,old:+document.getElementById('it-old').value||0,hot:document.getElementById('it-hot').checked,copy:document.getElementById('it-copy').value.trim(),stock,photo:pendingPhoto};
+    const obj={name,cat:document.getElementById('it-cat').value,status:document.getElementById('it-status').value,cost:+document.getElementById('it-cost').value||0,price:+document.getElementById('it-price').value||0,old:+document.getElementById('it-old').value||0,hot:document.getElementById('it-hot').checked,copy:document.getElementById('it-copy').value.trim(),stock,photo:pendingPhoto,gallery:pendingGallery};
+
   if(editItemId){const i=data.inventory.findIndex(x=>x.id===editItemId);if(i>=0)data.inventory[i]={...data.inventory[i],...obj};toast('check_circle','Ítem actualizado');}
   else{data.inventory.push({id:'i_'+Date.now()+Math.random().toString(36).slice(2,5),...obj,dateAdded:Date.now()});toast('check_circle',`"${name}" agregado`);}
     save();renderInventory();renderHoy();closeItemModal();
@@ -1044,7 +1076,8 @@ async function pullFromCloud(){
     data.inventory=prods.map(p=>({
       id:'i_'+p.id, dbId:p.id, name:p.name, cat:p.cat, status:p.status,
       cost:+p.cost||0, price:+p.price||0, old:+p.old||0, hot:!!p.hot,
-      copy:p.copy||'', stock:p.stock||{S:0,M:0,L:0,XL:0}, photo:p.photo||'',
+            copy:p.copy||'', stock:p.stock||{S:0,M:0,L:0,XL:0}, photo:p.photo||'', gallery:Array.isArray(p.gallery)?p.gallery:[],
+
       dateAdded:new Date(p.created_at).getTime()
     }));
   }
@@ -1057,15 +1090,18 @@ async function pullFromCloud(){
 /* Guarda un producto en la nube (crea o actualiza) */
 async function pushProduct(it){
   const photoUrl=await uploadPhoto(it.photo);
-  const payload={name:it.name,cat:it.cat,status:it.status,cost:it.cost,price:it.price,old:it.old,hot:it.hot,copy:it.copy,stock:it.stock,photo:photoUrl};
+  const galleryUrls=[];
+  for(const g of (it.gallery||[])){const u=await uploadPhoto(g);if(u)galleryUrls.push(u);}
+  const payload={name:it.name,cat:it.cat,status:it.status,cost:it.cost,price:it.price,old:it.old,hot:it.hot,copy:it.copy,stock:it.stock,photo:photoUrl,gallery:galleryUrls};
   if(it.dbId){
     await sb.from('products').update(payload).eq('id',it.dbId);
   }else{
     const {data:row}=await sb.from('products').insert(payload).select().single();
-    if(row){it.dbId=row.id;it.photo=photoUrl;}
+    if(row){it.dbId=row.id;}
   }
-  it.photo=photoUrl;
+  it.photo=photoUrl;it.gallery=galleryUrls;
 }
+
 
 /* Borra un producto de la nube */
 async function deleteProductCloud(dbId){
